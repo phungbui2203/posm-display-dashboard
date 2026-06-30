@@ -21,11 +21,13 @@ Mở http://localhost:8080/posm-dashboard.html
 
 ## GitHub Pages
 
-Repo này dùng `data/display-data.json` (dữ liệu mẫu đã ẩn danh) cho bản public.
+Repo dùng `data/display-data.json` (dữ liệu mẫu đã ẩn danh) cho bản public.
 
-Bật Pages: **Settings → Pages → Source: main branch → / (root)**.
+**URL trang web:** https://phungbui2203.github.io/posm-display-dashboard/
 
-URL: `https://phungbui2203.github.io/posm-display-dashboard/posm-dashboard.html`
+(Dashboard trực tiếp: https://phungbui2203.github.io/posm-display-dashboard/posm-dashboard.html)
+
+Pages: branch `master`, thư mục `/` (root).
 
 ## Lưu ý bảo mật
 
