@@ -349,8 +349,9 @@
     </header>
 
     <div class="error-banner" id="errorBanner">
-      <strong>Không thể tải file JSON.</strong>
-      <p style="margin-top:8px">Trình duyệt chặn <code>fetch()</code> khi mở file trực tiếp. Vui lòng chạy local server:</p>
+      <strong>Không thể tải file dữ liệu.</strong>
+      <p style="margin-top:8px">Kiểm tra file <code>data/display-data.json</code> (GitHub Pages) hoặc <code>Display raw - Copy.json</code> (local).</p>
+      <p style="margin-top:8px">Chạy local server nếu mở từ máy:</p>
       <pre style="margin-top:8px;font-size:13px;overflow-x:auto">cd "File raw (display web)"
 python -m http.server 8080
 # Mở http://localhost:8080/posm-dashboard.html</pre>
@@ -432,7 +433,9 @@ python -m http.server 8080
   </div>
 
   <script>
-    const JSON_FILES = ['./Display raw - Copy.json', './data/display-data.json'];
+    const JSON_FILES = location.hostname.endsWith('github.io')
+      ? ['./data/display-data.json']
+      : ['./Display raw - Copy.json', './data/display-data.json'];
     const PAGE_SIZE = 50;
     const CORE_FIELDS = ['Customer Code', 'Customer name', 'Address', 'Phone', 'Product line', 'Register display type'];
     const VALID_DISPLAY_TYPES = new Set(['Frame', 'Standee', 'Hanger']);
