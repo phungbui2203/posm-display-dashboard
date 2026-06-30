@@ -1,0 +1,8 @@
+# Dữ liệu thật — không đẩy lên public repo
+Display raw - Copy.json
+Display raw - Copy.xlsx
+*raw.json
+*.xlsx
+
+# Local overrides
+data/display-data.local.json

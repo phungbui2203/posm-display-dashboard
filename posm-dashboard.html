@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POSM Display Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --text-dim: #707070;
+      --border: #e8e8e8;
+      --primary: #00b14f;
+      --primary-soft: #d9fcde;
+      --positive: #00804a;
+      --notice: #f09800;
+      --alert: #d42e1c;
+      --neutral: #575757;
+      --info: #136fd8;
+      --shadow: 0 2px 8px rgba(0,0,0,0.06);
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Inter, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .container { max-width: 1440px; margin: 0 auto; padding: 24px 20px 48px; }
+
+    header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--positive);
+      margin-bottom: 4px;
+    }
+
+    header .subtitle { color: var(--text-dim); font-size: 14px; }
+
+    .error-banner {
+      display: none;
+      background: #fdf2f2;
+      border: 1px solid #ffd2cc;
+      color: #79150c;
+      padding: 16px 20px;
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+    }
+
+    .error-banner.visible { display: block; }
+
+    .error-banner code {
+      background: rgba(0,0,0,0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 80px 20px;
+      color: var(--text-dim);
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #dashboard { display: none; }
+    #dashboard.visible { display: block; }
+
+    .filters {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .filters h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .filter-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--positive); }
+    .btn-secondary { background: #eefbfb; color: #184440; }
+    .btn-secondary:hover { background: #a9eae6; }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--primary-soft);
+      color: var(--positive);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .kpi-grid { grid-template-columns: 1fr; } }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
+      border-left: 4px solid var(--primary);
+    }
+
+    .kpi-card.notice { border-left-color: var(--notice); }
+    .kpi-card.alert { border-left-color: var(--alert); }
+    .kpi-card.neutral { border-left-color: var(--neutral); }
+    .kpi-card.info { border-left-color: var(--info); }
+
+    .kpi-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+
+    .kpi-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .charts-section { margin-bottom: 24px; }
+
+    .charts-section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .chart-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .chart-wrap { position: relative; height: 280px; }
+
+    .table-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .table-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .table-header h2 { font-size: 18px; font-weight: 700; }
+
+    .table-tools {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .table-tools input {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      min-width: 220px;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    th {
+      background: var(--bg);
+      font-weight: 600;
+      color: var(--text-dim);
+      position: sticky;
+      top: 0;
+    }
+
+    tr:hover td { background: #fafafa; }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .tag-yes { background: var(--primary-soft); color: var(--positive); }
+    .tag-no { background: #f5f5f5; color: var(--neutral); }
+
+    .pagination {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .pagination button {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pagination span { font-size: 13px; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>POSM Display Dashboard</h1>
+      <p class="subtitle" id="headerSubtitle">Đang tải dữ liệu...</p>
+    </header>
+
+    <div class="error-banner" id="errorBanner">
+      <strong>Không thể tải file JSON.</strong>
+      <p style="margin-top:8px">Trình duyệt chặn <code>fetch()</code> khi mở file trực tiếp. Vui lòng chạy local server:</p>
+      <pre style="margin-top:8px;font-size:13px;overflow-x:auto">cd "File raw (display web)"
+python -m http.server 8080
+# Mở http://localhost:8080/posm-dashboard.html</pre>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <span>Đang tải Display raw - Copy.json...</span>
+    </div>
+
+    <div id="dashboard">
+      <section class="filters">
+        <h2>Bộ lọc</h2>
+        <div class="filter-grid">
+          <div class="filter-group">
+            <label for="filterMonth">Tháng</label>
+            <select id="filterMonth"><option value="">Tất cả</option></select>
+          </div>
+          <div class="filter-group">
+            <label for="filterHQ">Miền (HQ)</label>
+            <select id="filterHQ"><option value="">Tất cả</option></select>
+          </div>
+          <div class="filter-group">
+            <label for="filterArea">Khu vực (Area)</label>
+            <select id="filterArea"><option value="">Tất cả</option></select>
+          </div>
+          <div class="filter-group">
+            <label for="filterProduct">Product line</label>
+            <select id="filterProduct"><option value="">Tất cả</option></select>
+          </div>
+          <div class="filter-group">
+            <label for="filterDisplayType">Loại trưng bày</label>
+            <select id="filterDisplayType"><option value="">Tất cả</option></select>
+          </div>
+        </div>
+        <div class="filter-actions">
+          <button class="btn btn-secondary" id="btnReset">Reset bộ lọc</button>
+          <span class="badge" id="recordBadge">0 bản ghi</span>
+        </div>
+      </section>
+
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <section class="charts-section">
+        <h2>Biểu đồ phân tích</h2>
+        <div class="charts-grid">
+          <div class="chart-card"><h3>Trưng bày vs Không trưng bày theo Khu vực</h3><div class="chart-wrap"><canvas id="chartAreaDisplay"></canvas></div></div>
+          <div class="chart-card"><h3>Phân bố Loại trưng bày</h3><div class="chart-wrap"><canvas id="chartDisplayType"></canvas></div></div>
+          <div class="chart-card"><h3>Theo Product line</h3><div class="chart-wrap"><canvas id="chartProduct"></canvas></div></div>
+          <div class="chart-card"><h3>Xu hướng theo Tháng</h3><div class="chart-wrap"><canvas id="chartMonthTrend"></canvas></div></div>
+          <div class="chart-card"><h3>Tình trạng POSM theo Miền</h3><div class="chart-wrap"><canvas id="chartPosmSituation"></canvas></div></div>
+          <div class="chart-card"><h3>Hợp đồng theo Khu vực</h3><div class="chart-wrap"><canvas id="chartAgreement"></canvas></div></div>
+        </div>
+      </section>
+
+      <section class="table-section">
+        <div class="table-header">
+          <h2>Chi tiết cửa hàng</h2>
+          <div class="table-tools">
+            <input type="search" id="tableSearch" placeholder="Tìm mã KH, tên cửa hàng...">
+            <button class="btn btn-secondary" id="btnExport">Xuất CSV</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tháng</th><th>Miền</th><th>Khu vực</th><th>Mã KH</th><th>Tên CH</th>
+                <th>Product</th><th>Loại TB</th><th>POSM</th><th>Trưng bày</th>
+                <th>FOC amount</th><th>Doanh số</th><th>Hợp đồng</th><th>Loại KH</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const JSON_FILES = ['./Display raw - Copy.json', './data/display-data.json'];
+    const PAGE_SIZE = 50;
+    const CORE_FIELDS = ['Customer Code', 'Customer name', 'Address', 'Phone', 'Product line', 'Register display type'];
+    const VALID_DISPLAY_TYPES = new Set(['Frame', 'Standee', 'Hanger']);
+    const AREA_ALIASES = { EASTERN: 'Eastern', NMK: 'North Mekong' };
+
+    let allRows = [];
+    let filteredRows = [];
+    let tableSearchQuery = '';
+    let currentPage = 1;
+    const chartInstances = {};
+
+    const COLORS = {
+      primary: '#00b14f',
+      positive: '#00804a',
+      notice: '#f09800',
+      alert: '#d42e1c',
+      neutral: '#707070',
+      info: '#136fd8',
+      palette: ['#00b14f', '#17b5a6', '#136fd8', '#f09800', '#d42e1c', '#9558e9', '#64b227']
+    };
+
+    function num(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function isEmpty(v) {
+      return v === null || v === undefined || v === '' || (typeof v === 'string' && v.trim() === '');
+    }
+
+    function normalizeArea(area) {
+      if (!area) return '';
+      const s = String(area).trim();
+      return AREA_ALIASES[s] || s;
+    }
+
+    function formatMonth(raw) {
+      if (!raw) return '';
+      const d = new Date(raw);
+      if (isNaN(d)) return String(raw);
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const y = d.getFullYear();
+      return `${m}/${y}`;
+    }
+
+    function monthKey(raw) {
+      if (!raw) return '';
+      const d = new Date(raw);
+      if (isNaN(d)) return String(raw);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function normalizeDisplayType(v) {
+      if (isEmpty(v)) return 'Khác';
+      const s = String(v).trim();
+      if (VALID_DISPLAY_TYPES.has(s)) return s;
+      if (/^\d+(\.\d+)?$/.test(s)) return 'Khác';
+      if (s.toLowerCase() === 'frame') return 'Frame';
+      return s || 'Khác';
+    }
+
+    function normalizePosmSituation(v) {
+      if (isEmpty(v)) return 'Khác';
+      const s = String(v).trim();
+      if (s === 'New POSM' || s === 'Old POSM' || s === 'Not yet have POSM') return s;
+      return 'Khác';
+    }
+
+    function normalizeRow(row) {
+      return {
+        ...row,
+        _monthLabel: formatMonth(row.Month),
+        _monthKey: monthKey(row.Month),
+        _area: normalizeArea(row.Area),
+        _actualDisplay: num(row['Actual Display']) === 1 ? 1 : 0,
+        _focAmount: num(row['FOC amount']),
+        _salesPerformance: num(row['Sales performance']),
+        _customerType: isEmpty(row['Customer type']) ? '' : String(row['Customer type']).trim(),
+        _isNew: String(row['Customer type'] || '').trim().toLowerCase() === 'new',
+        _displayType: normalizeDisplayType(row['Register display type']),
+        _posmSituation: normalizePosmSituation(row['POSM situation']),
+        _hasAgreement: String(row['Display agreement'] || '').trim().toLowerCase() === 'had',
+        _incomplete: CORE_FIELDS.some(f => isEmpty(row[f]))
+      };
+    }
+
+    function formatVND(n) {
+      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
+    }
+
+    function formatNumber(n) {
+      return new Intl.NumberFormat('vi-VN').format(n);
+    }
+
+    function formatPercent(n) {
+      return new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + '%';
+    }
+
+    function computeMetrics(rows) {
+      const feeRows = rows.filter(r => r._actualDisplay === 1 && r._salesPerformance !== 0);
+      const totalFocFee = feeRows.reduce((s, r) => s + r._focAmount, 0);
+      const totalSalesFee = feeRows.reduce((s, r) => s + r._salesPerformance, 0);
+      const avgFeePct = feeRows.length
+        ? feeRows.reduce((s, r) => s + (r._focAmount / r._salesPerformance * 100), 0) / feeRows.length
+        : 0;
+      const totalFeePct = totalSalesFee ? (totalFocFee / totalSalesFee * 100) : 0;
+
+      return {
+        newCustomers: rows.filter(r => r._isNew).length,
+        newActive: rows.filter(r => r._isNew && r._actualDisplay === 1).length,
+        newInactive: rows.filter(r => r._isNew && r._actualDisplay === 0).length,
+        noPosm: rows.filter(r => r._posmSituation === 'Not yet have POSM').length,
+        hasPosm: rows.filter(r => r._posmSituation === 'New POSM' || r._posmSituation === 'Old POSM').length,
+        displaying: rows.filter(r => r._actualDisplay === 1).length,
+        notDisplaying: rows.filter(r => r._actualDisplay === 0).length,
+        hasAgreement: rows.filter(r => r._hasAgreement).length,
+        incomplete: rows.filter(r => r._incomplete).length,
+        totalFoc: rows.reduce((s, r) => s + r._focAmount, 0),
+        totalSales: rows.reduce((s, r) => s + r._salesPerformance, 0),
+        avgFeePct,
+        totalFeePct
+      };
+    }
+
+    function applyFilters() {
+      const month = document.getElementById('filterMonth').value;
+      const hq = document.getElementById('filterHQ').value;
+      const area = document.getElementById('filterArea').value;
+      const product = document.getElementById('filterProduct').value;
+      const displayType = document.getElementById('filterDisplayType').value;
+
+      filteredRows = allRows.filter(r => {
+        if (month && r._monthKey !== month) return false;
+        if (hq && r.HQ !== hq) return false;
+        if (area && r._area !== area) return false;
+        if (product && r['Product line'] !== product) return false;
+        if (displayType && r._displayType !== displayType) return false;
+        return true;
+      });
+
+      currentPage = 1;
+      renderAll();
+    }
+
+    function uniqueSorted(arr) {
+      return [...new Set(arr.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'vi'));
+    }
+
+    function populateFilters() {
+      const months = uniqueSorted(allRows.map(r => r._monthKey));
+      const monthLabels = {};
+      allRows.forEach(r => { monthLabels[r._monthKey] = r._monthLabel; });
+
+      fillSelect('filterMonth', months.map(m => ({ value: m, label: monthLabels[m] || m })));
+      fillSelect('filterHQ', uniqueSorted(allRows.map(r => r.HQ)).map(v => ({ value: v, label: v })));
+      updateAreaOptions();
+      fillSelect('filterProduct', uniqueSorted(allRows.map(r => r['Product line'])).map(v => ({ value: v, label: v })));
+      fillSelect('filterDisplayType', uniqueSorted(allRows.map(r => r._displayType)).map(v => ({ value: v, label: v })));
+    }
+
+    function fillSelect(id, options) {
+      const sel = document.getElementById(id);
+      const current = sel.value;
+      sel.innerHTML = '<option value="">Tất cả</option>';
+      options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.label;
+        sel.appendChild(opt);
+      });
+      if ([...sel.options].some(o => o.value === current)) sel.value = current;
+    }
+
+    function updateAreaOptions() {
+      const hq = document.getElementById('filterHQ').value;
+      let areas = allRows.map(r => r._area);
+      if (hq) areas = allRows.filter(r => r.HQ === hq).map(r => r._area);
+      fillSelect('filterArea', uniqueSorted(areas).map(v => ({ value: v, label: v })));
+    }
+
+    function renderKPIs(metrics) {
+      const cards = [
+        { label: 'Khách hàng mới', value: formatNumber(metrics.newCustomers), cls: 'info' },
+        { label: 'KH mới đã active', value: formatNumber(metrics.newActive), cls: '' },
+        { label: 'KH mới chưa active', value: formatNumber(metrics.newInactive), cls: 'notice' },
+        { label: 'CH chưa có POSM', value: formatNumber(metrics.noPosm), cls: 'alert' },
+        { label: 'CH có POSM', value: formatNumber(metrics.hasPosm), cls: '' },
+        { label: 'KH đang trưng bày', value: formatNumber(metrics.displaying), cls: '' },
+        { label: 'KH không trưng bày', value: formatNumber(metrics.notDisplaying), cls: 'neutral' },
+        { label: 'Có hợp đồng (Had)', value: formatNumber(metrics.hasAgreement), cls: 'info' },
+        { label: 'Chưa đủ thông tin', value: formatNumber(metrics.incomplete), cls: 'notice' },
+        { label: 'Total FOC amount', value: formatVND(metrics.totalFoc), cls: '' },
+        { label: 'Sales performance', value: formatVND(metrics.totalSales), cls: '' },
+        { label: '% phí trưng bày', value: formatPercent(metrics.avgFeePct), sub: `Tổng: ${formatPercent(metrics.totalFeePct)}`, cls: 'info' }
+      ];
+
+      document.getElementById('kpiGrid').innerHTML = cards.map(c => `
+        <div class="kpi-card ${c.cls}">
+          <div class="kpi-label">${c.label}</div>
+          <div class="kpi-value">${c.value}</div>
+          ${c.sub ? `<div class="kpi-sub">${c.sub}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function destroyChart(id) {
+      if (chartInstances[id]) {
+        chartInstances[id].destroy();
+        delete chartInstances[id];
+      }
+    }
+
+    function groupCount(rows, keyFn) {
+      const map = {};
+      rows.forEach(r => {
+        const k = keyFn(r);
+        map[k] = (map[k] || 0) + 1;
+      });
+      return map;
+    }
+
+    function renderCharts(rows) {
+      Chart.defaults.font.family = 'Inter, "Segoe UI", system-ui, sans-serif';
+      Chart.defaults.color = '#575757';
+
+      // Area display bar
+      const areaMap = {};
+      rows.forEach(r => {
+        const a = r._area || 'Khác';
+        if (!areaMap[a]) areaMap[a] = { yes: 0, no: 0 };
+        if (r._actualDisplay === 1) areaMap[a].yes++;
+        else areaMap[a].no++;
+      });
+      const areaLabels = Object.keys(areaMap).sort((a, b) => a.localeCompare(b, 'vi'));
+      destroyChart('chartAreaDisplay');
+      chartInstances.chartAreaDisplay = new Chart(document.getElementById('chartAreaDisplay'), {
+        type: 'bar',
+        data: {
+          labels: areaLabels,
+          datasets: [
+            { label: 'Trưng bày', data: areaLabels.map(a => areaMap[a].yes), backgroundColor: COLORS.primary },
+            { label: 'Không trưng bày', data: areaLabels.map(a => areaMap[a].no), backgroundColor: COLORS.neutral }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: false }, y: { beginAtZero: true } } }
+      });
+
+      // Display type doughnut
+      const dtMap = groupCount(rows, r => r._displayType);
+      const dtLabels = Object.keys(dtMap);
+      destroyChart('chartDisplayType');
+      chartInstances.chartDisplayType = new Chart(document.getElementById('chartDisplayType'), {
+        type: 'doughnut',
+        data: {
+          labels: dtLabels,
+          datasets: [{ data: dtLabels.map(l => dtMap[l]), backgroundColor: COLORS.palette }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+      });
+
+      // Product bar
+      const prodMap = groupCount(rows, r => r['Product line'] || 'Khác');
+      const prodLabels = Object.keys(prodMap);
+      destroyChart('chartProduct');
+      chartInstances.chartProduct = new Chart(document.getElementById('chartProduct'), {
+        type: 'bar',
+        data: {
+          labels: prodLabels,
+          datasets: [{ label: 'Số lượng', data: prodLabels.map(l => prodMap[l]), backgroundColor: COLORS.info }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      });
+
+      // Month trend line
+      const monthMap = {};
+      rows.forEach(r => {
+        const m = r._monthKey;
+        if (!m) return;
+        if (!monthMap[m]) monthMap[m] = { display: 0, foc: 0, label: r._monthLabel };
+        if (r._actualDisplay === 1) monthMap[m].display++;
+        monthMap[m].foc += r._focAmount;
+      });
+      const monthKeys = Object.keys(monthMap).sort();
+      destroyChart('chartMonthTrend');
+      chartInstances.chartMonthTrend = new Chart(document.getElementById('chartMonthTrend'), {
+        type: 'line',
+        data: {
+          labels: monthKeys.map(k => monthMap[k].label),
+          datasets: [
+            { label: 'KH trưng bày', data: monthKeys.map(k => monthMap[k].display), borderColor: COLORS.primary, backgroundColor: 'rgba(0,177,79,0.1)', fill: true, yAxisID: 'y' },
+            { label: 'FOC amount (triệu)', data: monthKeys.map(k => monthMap[k].foc / 1e6), borderColor: COLORS.notice, backgroundColor: 'transparent', yAxisID: 'y1' }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Số KH' } },
+            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'FOC (triệu VND)' } }
+          }
+        }
+      });
+
+      // POSM situation stacked by HQ
+      const hqMap = {};
+      rows.forEach(r => {
+        const h = r.HQ || 'Khác';
+        if (!hqMap[h]) hqMap[h] = { 'New POSM': 0, 'Old POSM': 0, 'Not yet have POSM': 0, 'Khác': 0 };
+        const cat = ['New POSM', 'Old POSM', 'Not yet have POSM'].includes(r._posmSituation) ? r._posmSituation : 'Khác';
+        hqMap[h][cat]++;
+      });
+      const hqLabels = Object.keys(hqMap);
+      const posmCats = ['New POSM', 'Old POSM', 'Not yet have POSM', 'Khác'];
+      const posmColors = ['#00b14f', '#17b5a6', '#d42e1c', '#bfbfbf'];
+      destroyChart('chartPosmSituation');
+      chartInstances.chartPosmSituation = new Chart(document.getElementById('chartPosmSituation'), {
+        type: 'bar',
+        data: {
+          labels: hqLabels,
+          datasets: posmCats.map((cat, i) => ({
+            label: cat,
+            data: hqLabels.map(h => hqMap[h][cat]),
+            backgroundColor: posmColors[i]
+          }))
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+      });
+
+      // Agreement by area
+      const agrMap = {};
+      rows.forEach(r => {
+        const a = r._area || 'Khác';
+        if (!agrMap[a]) agrMap[a] = { had: 0, notHad: 0 };
+        if (r._hasAgreement) agrMap[a].had++;
+        else agrMap[a].notHad++;
+      });
+      const agrLabels = Object.keys(agrMap).sort((a, b) => a.localeCompare(b, 'vi'));
+      destroyChart('chartAgreement');
+      chartInstances.chartAgreement = new Chart(document.getElementById('chartAgreement'), {
+        type: 'bar',
+        data: {
+          labels: agrLabels,
+          datasets: [
+            { label: 'Had', data: agrLabels.map(a => agrMap[a].had), backgroundColor: COLORS.primary },
+            { label: 'Not had', data: agrLabels.map(a => agrMap[a].notHad), backgroundColor: COLORS.neutral }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    function getTableRows() {
+      const q = tableSearchQuery.toLowerCase().trim();
+      if (!q) return filteredRows;
+      return filteredRows.filter(r => {
+        const code = String(r['Customer Code'] || '').toLowerCase();
+        const name = String(r['Customer name'] || '').toLowerCase();
+        return code.includes(q) || name.includes(q);
+      });
+    }
+
+    function renderTable() {
+      const rows = getTableRows();
+      const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageRows = rows.slice(start, start + PAGE_SIZE);
+
+      document.getElementById('tableBody').innerHTML = pageRows.map(r => `
+        <tr>
+          <td>${r._monthLabel}</td>
+          <td>${r.HQ || ''}</td>
+          <td>${r._area}</td>
+          <td>${r['Customer Code'] || ''}</td>
+          <td>${r['Customer name'] || ''}</td>
+          <td>${r['Product line'] || ''}</td>
+          <td>${r._displayType}</td>
+          <td>${r._posmSituation}</td>
+          <td><span class="tag ${r._actualDisplay ? 'tag-yes' : 'tag-no'}">${r._actualDisplay ? 'Có' : 'Không'}</span></td>
+          <td>${formatVND(r._focAmount)}</td>
+          <td>${formatVND(r._salesPerformance)}</td>
+          <td>${r._hasAgreement ? 'Had' : (r['Display agreement'] || 'Not had')}</td>
+          <td>${r._customerType || '—'}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="13" style="text-align:center;color:#707070">Không có dữ liệu</td></tr>';
+
+      const pag = document.getElementById('pagination');
+      pag.innerHTML = `
+        <button ${currentPage <= 1 ? 'disabled' : ''} id="btnPrev">Trước</button>
+        <span>Trang ${currentPage} / ${totalPages} (${formatNumber(rows.length)} dòng)</span>
+        <button ${currentPage >= totalPages ? 'disabled' : ''} id="btnNext">Sau</button>
+      `;
+      document.getElementById('btnPrev')?.addEventListener('click', () => { currentPage--; renderTable(); });
+      document.getElementById('btnNext')?.addEventListener('click', () => { currentPage++; renderTable(); });
+    }
+
+    function exportCSV() {
+      const rows = getTableRows();
+      const headers = ['Month', 'HQ', 'Area', 'Customer Code', 'Customer name', 'Product line', 'Register display type', 'POSM situation', 'Actual Display', 'FOC amount', 'Sales performance', 'Display agreement', 'Customer type'];
+      const escape = v => {
+        const s = String(v ?? '');
+        return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const lines = [headers.join(',')];
+      rows.forEach(r => {
+        lines.push([
+          r._monthLabel, r.HQ, r._area, r['Customer Code'], r['Customer name'],
+          r['Product line'], r._displayType, r._posmSituation, r._actualDisplay,
+          r._focAmount, r._salesPerformance, r['Display agreement'], r._customerType
+        ].map(escape).join(','));
+      });
+      const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'posm-display-export.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function renderAll() {
+      const metrics = computeMetrics(filteredRows);
+      renderKPIs(metrics);
+      renderCharts(filteredRows);
+      renderTable();
+      document.getElementById('recordBadge').textContent = `${formatNumber(filteredRows.length)} bản ghi`;
+    }
+
+    async function loadData() {
+      try {
+        let data = null;
+        for (const url of JSON_FILES) {
+          try {
+            const res = await fetch(url);
+            if (res.ok) { data = await res.json(); break; }
+          } catch (_) { /* try next */ }
+        }
+        if (!data) throw new Error('Không tìm thấy file dữ liệu');
+        allRows = (data.Sheet2 || []).map(normalizeRow);
+        filteredRows = [...allRows];
+
+        const months = uniqueSorted(allRows.map(r => r._monthKey));
+        const monthRange = months.length ? `${allRows.find(r => r._monthKey === months[0])?._monthLabel} – ${allRows.find(r => r._monthKey === months[months.length - 1])?._monthLabel}` : '';
+        document.getElementById('headerSubtitle').textContent =
+          `${formatNumber(allRows.length)} bản ghi | ${monthRange} | Cập nhật: ${new Date().toLocaleString('vi-VN')}`;
+
+        populateFilters();
+        renderAll();
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard').classList.add('visible');
+      } catch (err) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('errorBanner').classList.add('visible');
+        console.error(err);
+      }
+    }
+
+    document.getElementById('filterMonth').addEventListener('change', applyFilters);
+    document.getElementById('filterHQ').addEventListener('change', () => { updateAreaOptions(); applyFilters(); });
+    document.getElementById('filterArea').addEventListener('change', applyFilters);
+    document.getElementById('filterProduct').addEventListener('change', applyFilters);
+    document.getElementById('filterDisplayType').addEventListener('change', applyFilters);
+    document.getElementById('btnReset').addEventListener('click', () => {
+      ['filterMonth', 'filterHQ', 'filterArea', 'filterProduct', 'filterDisplayType'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      updateAreaOptions();
+      tableSearchQuery = '';
+      document.getElementById('tableSearch').value = '';
+      filteredRows = [...allRows];
+      currentPage = 1;
+      renderAll();
+    });
+    document.getElementById('tableSearch').addEventListener('input', e => {
+      tableSearchQuery = e.target.value;
+      currentPage = 1;
+      renderTable();
+    });
+    document.getElementById('btnExport').addEventListener('click', exportCSV);
+
+    loadData();
+  </script>
+</body>
+</html>
